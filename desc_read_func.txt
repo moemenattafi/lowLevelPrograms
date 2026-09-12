@@ -1,0 +1,36 @@
+User Space (Ring 3):
+1. Program calls glibc's read()
+2. glibc sets: RAX=0 (SYS_read), RDI=fd, RSI=buf, RDX=count
+3. glibc executes SYSCALL instruction
+
+Hardware (CPU):
+4. CPU saves RIP (return address) to RCX
+5. CPU saves RFLAGS to R11
+6. CPU switches to Ring 0
+7. CPU loads kernel stack pointer from IA32_LSTAR MSR  
+8. CPU jumps to entry_SYSCALL_64 in kernel
+
+Kernel Space (Ring 0):
+9. entry_SYSCALL_64 saves all registers to kernel stack
+10. Checks if RAX (syscall number) is valid
+11. Looks up RAX in sys_call_table[]
+12. For RAX=0: calls sys_read()
+13. sys_read() validates fd, buf pointer, count
+14. Finds the file struct for fd
+15. Calls the file's .read() method (e.g., ext4_file_read_iter)
+16. Copies data from page cache to user buffer
+17. Returns number of bytes to sys_read
+18. Returns from sys_read() to entry_SYSCALL_64
+19. Restores registers from kernel stack
+20. Executes SYSRET instruction
+
+Hardware:
+21. CPU loads RIP from RCX
+22. CPU loads RFLAGS from R11
+23. CPU switches back to Ring 3
+
+User Space (Ring 3):
+24. Execution resumes after SYSCALL instruction
+25. RAX contains return value (bytes read, or -errno)
+26. glibc converts negative return to errno and returns -1 if error
+27. Program receives return value of read()
